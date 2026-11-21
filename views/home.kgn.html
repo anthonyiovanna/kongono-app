@@ -1,0 +1,41 @@
+@extends('layouts/app')
+
+@section('title', $title)
+
+@section('badges')
+  <x-badge :label="'PHP ' . $phpVersion" />
+  <x-badge :label="$routeCount . ' routes'" />
+  @if ($debug)
+    <x-badge label="Debug Mode" />
+  @endif
+@endsection
+
+@section('content')
+  <h1>{{ $title }}</h1>
+  <p class="muted">Zero-legacy PHP 8.5+ application running on Kongono Framework v1 with zero Symfony runtime dependencies.</p>
+
+  <div class="grid">
+    <x-card title="Kongono Dev Studio">
+      <p class="muted">Inspect live HTTP requests, routes, container services, and run Oshie, Hantei, and MCP right in your browser.</p>
+      <p><a href="/_kongono">Open /_kongono &rarr;</a></p>
+    </x-card>
+
+    <x-card title="Interactive OpenAPI 3.1 Docs">
+      <p class="muted">Auto-generated directly from your PHP 8.5 route attributes and validated DTOs — try <code>POST /api/echo</code> live.</p>
+      <p><a href="/docs">Open /docs &rarr;</a></p>
+    </x-card>
+
+    <x-card title="Built-In AI Companions">
+      <pre>php vendor/bin/kongo oshie --interactive
+php vendor/bin/kongo chie "Add a /api/posts route"
+php vendor/bin/kongo hantei check
+php vendor/bin/kongo mcp</pre>
+    </x-card>
+
+    <x-card title="Production Ready">
+      <pre>php vendor/bin/kongo doctor
+php vendor/bin/kongo optimize
+docker build -t my-app .</pre>
+    </x-card>
+  </div>
+@endsection

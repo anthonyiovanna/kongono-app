@@ -1,0 +1,46 @@
+name: Kongono App CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    name: PHP 8.5 App Quality Suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.5
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: curl, json, mbstring, openssl, pdo, sodium, zlib
+          tools: composer:v2
+
+      - name: Install Dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Validate Composer Manifest
+        run: composer validate --strict
+
+      - name: Run Post-Create-Project Setup & CLI Checks
+        run: |
+          composer run-script post-create-project-cmd
+          php vendor/bin/kongo doctor
+          php vendor/bin/kongo env:check
+          php vendor/bin/kongo routes --json
+          php vendor/bin/kongo optimize
+
+      - name: Code Style (PHP-CS-Fixer)
+        run: composer cs
+
+      - name: Static Analysis (PHPStan Level 9 + Strict)
+        run: composer analyse
+
+      - name: Test Suite (PHPUnit 13 Strict)
+        run: composer test

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>@yield('title', 'Kongono App')</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <header>
+    <div>
+      <a class="brand" href="/">Kongono Framework</a>
+      <div class="nav">
+        <a href="/">Home</a>
+        <a href="/docs">API Explorer</a>
+        <a href="/_kongono">Dev Studio</a>
+        <a href="/health">Health</a>
+        <a href="/openapi.json">OpenAPI 3.1</a>
+      </div>
+    </div>
+    <div class="badges">@yield('badges')</div>
+  </header>
+  <main>@yield('content')</main>
+</body>
+</html>
