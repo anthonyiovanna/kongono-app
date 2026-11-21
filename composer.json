@@ -54,8 +54,7 @@
   },
   "scripts": {
     "post-create-project-cmd": [
-      "@php -r \"if (!file_exists('.env') && file_exists('.env.example')) { copy('.env.example', '.env'); }\"",
-      "@php -r \"require 'vendor/autoload.php'; $env = file_get_contents('.env'); if (is_string($env) && preg_match('/^APP_KEY=\\s*$/m', $env)) { $key = Kongono\\Security\\Encryptor::generateKey(); file_put_contents('.env', preg_replace('/^APP_KEY=\\s*$/m', 'APP_KEY=' . $key, $env, 1)); echo 'Generated 256-bit APP_KEY in .env' . PHP_EOL; }\""
+      "@php app/setup.php"
     ],
     "dev": "@php vendor/bin/kongo serve --port=8000",
     "doctor": "@php vendor/bin/kongo doctor",
