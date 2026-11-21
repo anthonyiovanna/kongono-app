@@ -2,10 +2,10 @@
 
 [![CI](https://github.com/anthonyiovanna/kongono-app/actions/workflows/ci.yml/badge.svg)](https://github.com/anthonyiovanna/kongono-app/actions/workflows/ci.yml)
 ![PHP 8.5+](https://img.shields.io/badge/PHP-8.5%2B-777BB4?logo=php&logoColor=white)
-![Zero Symfony](https://img.shields.io/badge/Symfony-0%20runtime%20deps-16a34a)
+![Zero Symfony](https://img.shields.io/badge/Symfony-0%20packages-16a34a)
 ![License MIT](https://img.shields.io/badge/License-MIT-0284c7)
 
-The official starter application skeleton for [**Kongono Framework v1**](https://github.com/anthonyiovanna/kongono) — pure PHP 8.5+, zero Symfony runtime dependencies, FrankenPHP worker ready, and built-in **Oshie**, **Chie**, and **Hantei** AI companions.
+The official starter application skeleton for [**Kongono Framework v1**](https://github.com/anthonyiovanna/kongono) — pure PHP 8.5+, **zero Symfony packages (runtime or dev)**, FrankenPHP worker ready, and built-in **Oshie**, **Chie**, and **Hantei** AI companions.
 
 ## Quick Start
 
@@ -40,7 +40,7 @@ php vendor/bin/kongo mcp                   # Connect AI IDEs (Antigravity, Curso
 ## Quality Checks
 
 ```bash
-composer quality   # Runs PHP-CS-Fixer + PHPStan Level 9 Strict + PHPUnit 13
+composer quality   # Runs PHPStan Level 9 Strict + PHPUnit 13 Strict
 ```
 
 ## Production Deployment (FrankenPHP)

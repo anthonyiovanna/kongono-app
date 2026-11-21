@@ -3,7 +3,6 @@
 .env
 .env.*
 !.env.example
-.php-cs-fixer.cache
 .phpunit.cache/
 .cache/
 .idea/

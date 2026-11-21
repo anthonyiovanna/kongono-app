@@ -25,6 +25,14 @@ jobs:
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist
 
+      - name: Verify Zero Symfony Packages (Runtime & Dev)
+        run: |
+          if composer show | grep -qi "symfony/"; then
+            echo "Unexpected Symfony package detected!"
+            composer show | grep -i "symfony/"
+            exit 1
+          fi
+
       - name: Validate Composer Manifest
         run: composer validate --strict
 
@@ -35,9 +43,6 @@ jobs:
           php vendor/bin/kongo env:check
           php vendor/bin/kongo routes --json
           php vendor/bin/kongo optimize
-
-      - name: Code Style (PHP-CS-Fixer)
-        run: composer cs
 
       - name: Static Analysis (PHPStan Level 9 + Strict)
         run: composer analyse
