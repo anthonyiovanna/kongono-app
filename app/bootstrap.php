@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Http\HomeController;
 use Kongono\Ai\AiClient;
 use Kongono\Ai\AiException;
+use Kongono\Cli\Companions\ChieBuilder;
+use Kongono\Cli\Companions\DiffRenderer;
 use Kongono\Cli\Companions\HanteiDebugger;
 use Kongono\Cli\Companions\OshieTutor;
 use Kongono\Cli\Context\ProjectContext;
@@ -105,6 +107,40 @@ $app->middleware(
             $ctx = new ProjectContext($baseDir, $app->graph());
 
             return (new HanteiDebugger($tryAi()))->diagnose($diagnostic, $ctx);
+        },
+        chieHandler: static function (string $instruction) use ($app, $baseDir, $tryAi): array {
+            $ai = $tryAi();
+            if (null === $ai) {
+                return [
+                    'summary' => 'Chie preview requires an AI provider. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, or OLLAMA_HOST in .env.',
+                    'diffs' => [],
+                    'apply_command' => sprintf('php vendor/bin/kongo chie %s --apply', escapeshellarg($instruction)),
+                ];
+            }
+            $ctx = new ProjectContext($baseDir, $app->graph());
+            $plan = (new ChieBuilder($ai))->build($instruction, $ctx, apply: false);
+            $diffs = [];
+            foreach ($plan['changes'] as $change) {
+                $before = null;
+                try {
+                    $before = $ctx->readFileSafe($change['path']);
+                } catch (\Throwable) {
+                    $before = null;
+                }
+                $diffs[] = [
+                    'path' => $change['path'],
+                    'action' => $change['action'],
+                    'explanation' => $change['explanation'],
+                    'diff' => DiffRenderer::render($change['path'], $before, $change['content']),
+                ];
+            }
+
+            return [
+                'summary' => sprintf('Chie (%s / %s): %s', $plan['provider'], $plan['model'], $plan['summary']),
+                'diffs' => $diffs,
+                'next_steps' => $plan['next_steps'],
+                'apply_command' => sprintf('php vendor/bin/kongo chie %s --apply', escapeshellarg($instruction)),
+            ];
         },
     ),
     new CompressionMiddleware(),

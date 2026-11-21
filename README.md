@@ -27,6 +27,7 @@ Then open in your browser:
 ```bash
 php vendor/bin/kongo doctor                # Verify PHP 8.5, extensions, AI provider & app graph
 php vendor/bin/kongo env:check             # Verify .env against .env.example
+php vendor/bin/kongo tinker                # Interactive PHP 8.5 REPL with live $app & $container
 php vendor/bin/kongo routes                # List all registered HTTP routes
 php vendor/bin/kongo make:controller Post  # Generate a PHP 8.5 attribute controller
 php vendor/bin/kongo make:dto CreatePost   # Generate a validated readonly DTO

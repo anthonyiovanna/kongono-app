@@ -65,6 +65,10 @@ final class AppTest extends TestCase
             ->assertOk()
             ->assertSee('Routing & Controllers');
 
+        $client->postJson('/_kongono/api/chie', ['instruction' => 'Add a /api/stats endpoint'])
+            ->assertOk()
+            ->assertSee('Chie');
+
         $mcp = $client->postJson('/mcp', [
             'jsonrpc' => '2.0',
             'id' => 1,
