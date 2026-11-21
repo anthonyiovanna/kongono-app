@@ -70,7 +70,7 @@ $health = (new HealthCheck())
 
 $app = App::create($baseDir, name: $appName)
     ->config(['app' => ['name' => $appName, 'debug' => $debug]])
-    ->views()
+    ->views(autoReload: $debug)
     ->instance(CacheInterface::class, $cache)
     ->instance(StorageInterface::class, $storage)
     ->instance(LoggerInterface::class, $logger)

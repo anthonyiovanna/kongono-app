@@ -6,6 +6,7 @@ namespace App\Tests;
 
 use Kongono\Http\App;
 use Kongono\Http\Testing\TestClient;
+use Kongono\View\ViewEngine;
 use PHPUnit\Framework\TestCase;
 
 final class AppTest extends TestCase
@@ -99,6 +100,39 @@ final class AppTest extends TestCase
         $client->withHeader('Idempotency-Key', 'echo-1')
             ->postJson('/api/echo', ['message' => 'Different payload'])
             ->assertStatus(409);
+    }
+
+    public function testViewsAutoReloadTracksAppDebugSetting(): void
+    {
+        $prevEnv = $_ENV['APP_DEBUG'] ?? null;
+        $prevServer = $_SERVER['APP_DEBUG'] ?? null;
+        $prevGetenv = getenv('APP_DEBUG');
+
+        try {
+            $_ENV['APP_DEBUG'] = 'false';
+            $_SERVER['APP_DEBUG'] = 'false';
+            putenv('APP_DEBUG=false');
+
+            $prodApp = $this->bootApp();
+            self::assertFalse($prodApp->isDebug());
+            self::assertFalse($prodApp->container()->make(ViewEngine::class)->isAutoReload());
+        } finally {
+            if (null === $prevEnv) {
+                unset($_ENV['APP_DEBUG']);
+            } else {
+                $_ENV['APP_DEBUG'] = $prevEnv;
+            }
+            if (null === $prevServer) {
+                unset($_SERVER['APP_DEBUG']);
+            } else {
+                $_SERVER['APP_DEBUG'] = $prevServer;
+            }
+            if (false === $prevGetenv) {
+                putenv('APP_DEBUG');
+            } else {
+                putenv('APP_DEBUG=' . $prevGetenv);
+            }
+        }
     }
 
     private function removeDir(string $dir): void
