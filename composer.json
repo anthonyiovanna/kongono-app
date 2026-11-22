@@ -28,7 +28,7 @@
   },
   "require": {
     "php": ">=8.5.0",
-    "kongono/framework": "^1.1.1"
+    "kongono/framework": "^1.2"
   },
   "require-dev": {
     "phpstan/phpstan": "^2.2",
@@ -57,6 +57,8 @@
     ],
     "dev": "@php vendor/bin/kongo serve --port=8000",
     "doctor": "@php vendor/bin/kongo doctor",
+    "security:audit": "@php vendor/bin/kongo audit",
+    "deploy:init": "@php vendor/bin/kongo deploy:init",
     "optimize": "@php vendor/bin/kongo optimize",
     "test": "@php -d memory_limit=512M vendor/bin/phpunit --configuration phpunit.xml.dist --fail-on-deprecation --fail-on-warning --fail-on-notice",
     "analyse": "@php -d memory_limit=512M vendor/bin/phpstan analyse --configuration=phpstan.neon.dist --no-progress",
