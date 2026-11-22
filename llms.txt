@@ -1,4 +1,4 @@
-# Kongono Framework v1.3 — Compact LLM Reference (llms.txt)
+# Kongono Framework v1.4 — Compact LLM Reference (llms.txt)
 
 ## Routing, AOT Compilation & Attributes (`Kongono\Http\Routing\*`)
 - `#[Prefix('/api/v1')]`, `#[Get('/items')]`, `#[Post('/items')]`, `#[Put('/items/{id:\d+}')]`, `#[Patch('/items/{id:\d+}')]`, `#[Delete('/items/{id:\d+}')]`
@@ -19,12 +19,18 @@
 - HTML attributes: `kgn-get`, `kgn-post`, `kgn-put`, `kgn-patch`, `kgn-delete`, `kgn-target="#el"`, `kgn-swap="innerHTML|outerHTML|beforeend|afterbegin|delete"`, `kgn-confirm="..."`, `kgn-stream="/events"` + `kgn-event="updated"`.
 - In controllers: `if ($request->isLive()) return Response::fragment($html, pushUrl: '/new-url');`.
 
-## Database & Fail-Closed Multi-Tenancy (`Kongono\Database\*`)
+## Database, N+1 Guard & Fail-Closed Multi-Tenancy (`Kongono\Database\*`)
 - `$db->table('invoices')->forTenant(new TenantContext($workspaceId))->where('status', '=', 'open')->orderBy('id', 'DESC')->get();`
 - `$db->table('invoices')->requireTenant('workspace_id')` throws `DatabaseException` if `workspace_id` equality filter is omitted.
 - Unscoped `UPDATE`/`DELETE` fails closed unless `$allowUnscoped = true`.
+- `QueryGuard(threshold: 5, throwOnViolation: true)` plugs into `PdoConnection::onQuery()`; use `BatchLoader::loadMany($keys, $fetcher)` to prevent N+1 queries; run `kongo migrate:lint` before deploy.
 
-## Security & AI Threat Defenses (`Kongono\Security\*`, `Kongono\Ai\Security\*`)
+## Durable Workflows (`Kongono\Jobs\Workflow\*`)
+- `(new WorkflowEngine(new CacheWorkflowStore($cache)))->run($runId, 'order.fulfill', fn(WorkflowContext $wf) => ...)`
+- `$wf->step('charge', fn() => ...)` (memoized across crashes/restarts), `$wf->sleep(3600)`, `$wf->waitForEvent('manager.approved')` + `$engine->signal($runId, 'manager.approved', $payload)`.
+
+## Zero-Vendor Auth, Security & AI Threat Defenses (`Kongono\Security\*`, `Kongono\Ai\Security\*`)
+- `PasskeyVerifier($cache)` (WebAuthn ES256/Ed25519), `MagicLinkAuth($key, $cache)` (single-use signed links), `PkceOAuthClient::github(...)` / `::google(...)` (PKCE S256 over `SafeHttpClient`).
 - `AiThreatShieldMiddleware($cache, honeypotPaths: ..., honeypotField: '_hp_website', banSeconds: 900, maxProbesPerWindow: 15, maxCostUnitsPerWindow: 0)`
 - `PromptGuard` + `UntrustedInput`: `$p = $guard->buildProtectedSystemPrompt($sys)`, `$guard->wrapUntrusted($input)`, `$guard->detectInjectionSignals($text)`, `$guard->inspectOutput($out, $p['canary'])`
 - `SafeHttpClient(allowedHosts: ['api.stripe.com'], allowPlainHttp: false, allowPrivateIps: false)` -> `admitTarget($url)` / `request(...)` / `requestMany(...)`
@@ -36,7 +42,9 @@
 - `@if`/`@elseif`/`@else`/`@endif`, `@foreach`/`@endforeach`, `@forelse`/`@empty`/`@endforelse`
 - Components: `<x-card title="Static" :tag="$dynamic">Slot</x-card>` -> `views/components/card.kgn.html`
 
-## AI, Governance & MCP (`Kongono\Ai\*`, `Kongono\Cli\*`)
+## AI, Evals, Governance & MCP (`Kongono\Ai\*`, `Kongono\Cli\*`)
 - `AiClient::fromEnv()` (OpenAI, Anthropic, Gemini, Ollama) -> `ask()`, `chat()`, `chatStream()`, `structured($prompt, Dto::class)`
+- `EvalRunner` + `EvalCase`: `kongo eval [--redteam] [--file=evals/suite.php]` tests accuracy, DTO schemas, token/latency budgets, and 12 built-in prompt-injection vectors.
+- Dev Studio v2 (`/_kongono`): `POST /_kongono/api/replay/{id}` replays captured requests in-process; `GET /_kongono/api/export-test/{id}` exports PHPUnit 13 `TestClient` tests.
 - `AgentPrincipal(id, role, allowedTools, maxSteps, maxToolCalls, approvalRequiredTools, maxTokens, maxCostUsd)` + `AgentRunner`
-- Built-in CLI: `kongo serve`, `kongo doctor`, `kongo audit [--attack]`, `kongo sdk:generate`, `kongo deploy:init`, `kongo routes`, `kongo graph`, `kongo openapi`, `kongo mcp`, `kongo optimize`, `kongo work`, `kongo oshie`, `kongo chie`, `kongo hantei`
+- Built-in CLI: `kongo serve`, `kongo doctor`, `kongo audit [--attack]`, `kongo eval`, `kongo migrate:lint`, `kongo sdk:generate`, `kongo deploy:init`, `kongo routes`, `kongo graph`, `kongo openapi`, `kongo mcp`, `kongo optimize`, `kongo work`, `kongo oshie`, `kongo chie`, `kongo hantei`

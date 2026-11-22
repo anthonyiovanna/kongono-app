@@ -1,6 +1,6 @@
-# AI Agent Engineering Guide (Kongono Framework v1.3+)
+# AI Agent Engineering Guide (Kongono Framework v1.4+)
 
-This application runs on **Kongono Framework v1.3+** — pure PHP 8.5+, zero Symfony packages, zero magic facades, and persistent-runtime first (FrankenPHP / RoadRunner / PHP-FPM).
+This application runs on **Kongono Framework v1.4+** — pure PHP 8.5+, zero Symfony packages, zero magic facades, and persistent-runtime first (FrankenPHP / RoadRunner / PHP-FPM).
 
 ## Non-Negotiable Rules
 1. **Strict Pure PHP 8.5+**: Always include `declare(strict_types=1);`. Prefer `final readonly class`, enums, and native attributes. Never install `symfony/*` or Laravel packages.
@@ -10,7 +10,9 @@ This application runs on **Kongono Framework v1.3+** — pure PHP 8.5+, zero Sym
    - Autonomous AI Recon / Bot Shield: attach `Kongono\Security\Middleware\AiThreatShieldMiddleware` for honeypot traps, 404 probe burst auto-banning, and cost-aware compute budgets.
    - AI Prompts & Untrusted Data: wrap external text with `PromptGuard::wrapUntrusted(new UntrustedInput(...))` and verify outputs with `PromptGuard::inspectOutput($reply, $canary)`.
    - Encryption: use `Kongono\Security\Encryptor` (`XChaCha20-Poly1305` + tenant/record AAD + `previousKeys`).
-   - Multi-tenant DB queries: always scope via `QueryBuilder::forTenant(new TenantContext($workspaceId))` or `requireTenant()`.
+   - Multi-tenant DB queries: always scope via `QueryBuilder::forTenant(new TenantContext($workspaceId))` or `requireTenant()`. Avoid N+1 loops using `BatchLoader` and verify with `QueryGuard` + `kongo migrate:lint`.
+   - Passwordless & OAuth Auth: prefer native `PasskeyVerifier` (WebAuthn ES256/Ed25519), `MagicLinkAuth`, and `PkceOAuthClient` (over `SafeHttpClient`).
+   - Long-running & Human-in-the-Loop Tasks: use `WorkflowEngine` (`$wf->step()`, `$wf->sleep()`, `$wf->waitForEvent()` + `signal()`).
    - Auth routes (`/login`, `/register`, `/forgot-password`, `/reset-password`): attach `#[Middleware(RateLimitMiddleware::class)]`.
    - Payment/mutating API routes: attach `#[Idempotent(ttlSeconds: 3600)]`.
    - Logs & AI prompts: pass untrusted strings/arrays through `SecretScrubber::scrub()` / `SecretScrubber::scrubArray()`.
@@ -22,5 +24,5 @@ This application runs on **Kongono Framework v1.3+** — pure PHP 8.5+, zero Sym
    - Run `php vendor/bin/kongo sdk:generate --lang=ts|swift|kotlin|dart --out=...` whenever API routes or DTOs change.
 6. **Verify Before Finishing**:
    - Run `composer quality` (PHPStan Level 9 + strict rules + PHPUnit 13 strict).
-   - Run `php vendor/bin/kongo audit --attack` and `php vendor/bin/kongo doctor`.
-   - Use MCP tools (`kongono_routes`, `kongono_graph`, `kongono_sdk_generate`, `kongono_audit`, `kongono_test_route`) when available.
+   - Run `php vendor/bin/kongo audit --attack`, `php vendor/bin/kongo eval --redteam`, `php vendor/bin/kongo migrate:lint`, and `php vendor/bin/kongo doctor`.
+   - Use MCP tools (`kongono_routes`, `kongono_graph`, `kongono_sdk_generate`, `kongono_audit`, `kongono_eval`, `kongono_migrate_lint`, `kongono_test_route`) when available.
