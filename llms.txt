@@ -1,35 +1,42 @@
-# Kongono Framework v1.2 — Compact LLM Reference (llms.txt)
+# Kongono Framework v1.3 — Compact LLM Reference (llms.txt)
 
-## Routing & Attributes (`Kongono\Http\Routing\*`)
+## Routing, AOT Compilation & Attributes (`Kongono\Http\Routing\*`)
 - `#[Prefix('/api/v1')]`, `#[Get('/items')]`, `#[Post('/items')]`, `#[Put('/items/{id:\d+}')]`, `#[Patch('/items/{id:\d+}')]`, `#[Delete('/items/{id:\d+}')]`
 - `#[Middleware(RateLimitMiddleware::class)]`, `#[Idempotent(ttlSeconds: 3600)]`, `#[Can('billing.write')]`, `#[CacheControl(maxAge: 300, public: true)]`
-- Controller methods receive typed route params (`int $id`), `Request`, container services, and validated readonly DTOs automatically.
+- Static routes dispatch in O(1); dynamic routes pre-compile regexes. `kongo optimize` emits `var/cache/routes.compiled.php` (zero-reflection `Router::loadCompiledTable()`).
 
-## Typed Validation (`Kongono\Validation\Attributes\*`)
+## Typed Validation & Multi-Platform SDKs (`Kongono\Validation\*`, `kongo sdk:generate`)
 - `#[Required]`, `#[Min(2)]`, `#[Max(120)]`, `#[Between(1, 100000)]`, `#[Email]`, `#[Url]`, `#[In(['a', 'b'])]`, `#[Regex('/.../')]`
 - Place attributes directly on `final readonly class` constructor parameters. Invalid input automatically returns HTTP 422 JSON.
+- Generate typed Web/Mobile clients directly from routes & DTOs: `kongo sdk:generate --lang=ts|swift|kotlin|dart [--name=ApiClient] [--out=file]`.
+
+## Concurrency (`Kongono\Core\Async\Async`, `SafeHttpClient::requestMany`)
+- `Async::all(['a' => fn() => ..., 'b' => fn() => ...])`, `Async::race(...)`, `Async::map($items, $fn)`, `Async::allSettled(...)`, `Async::suspend()`
+- `$safeHttp->requestMany(['stripe' => ['url' => 'https://...'], 'crm' => ['url' => 'https://...']])` runs parallel SSRF-pinned HTTPS via `curl_multi`.
+
+## Kongono\Live Zero-Build Hypermedia & SSE (`Kongono\Http\Live\*`)
+- Mount `new LiveMiddleware()` to serve strict-CSP `/_kongono/live.js` (~3 KB). Add `@liveScript` in layouts.
+- HTML attributes: `kgn-get`, `kgn-post`, `kgn-put`, `kgn-patch`, `kgn-delete`, `kgn-target="#el"`, `kgn-swap="innerHTML|outerHTML|beforeend|afterbegin|delete"`, `kgn-confirm="..."`, `kgn-stream="/events"` + `kgn-event="updated"`.
+- In controllers: `if ($request->isLive()) return Response::fragment($html, pushUrl: '/new-url');`.
 
 ## Database & Fail-Closed Multi-Tenancy (`Kongono\Database\*`)
 - `$db->table('invoices')->forTenant(new TenantContext($workspaceId))->where('status', '=', 'open')->orderBy('id', 'DESC')->get();`
 - `$db->table('invoices')->requireTenant('workspace_id')` throws `DatabaseException` if `workspace_id` equality filter is omitted.
 - Unscoped `UPDATE`/`DELETE` fails closed unless `$allowUnscoped = true`.
 
-## Security (`Kongono\Security\*`)
-- `SafeHttpClient(allowedHosts: ['api.stripe.com'], allowPlainHttp: false, allowPrivateIps: false)` -> `admitTarget($url)` / `request(...)`
+## Security & AI Threat Defenses (`Kongono\Security\*`, `Kongono\Ai\Security\*`)
+- `AiThreatShieldMiddleware($cache, honeypotPaths: ..., honeypotField: '_hp_website', banSeconds: 900, maxProbesPerWindow: 15, maxCostUnitsPerWindow: 0)`
+- `PromptGuard` + `UntrustedInput`: `$p = $guard->buildProtectedSystemPrompt($sys)`, `$guard->wrapUntrusted($input)`, `$guard->detectInjectionSignals($text)`, `$guard->inspectOutput($out, $p['canary'])`
+- `SafeHttpClient(allowedHosts: ['api.stripe.com'], allowPlainHttp: false, allowPrivateIps: false)` -> `admitTarget($url)` / `request(...)` / `requestMany(...)`
 - `Encryptor($key, previousKeys: [$oldKey])` -> `encrypt($plain, $aad)` / `decrypt($cipher, $aad)`
-- `Totp` -> `generateSecret()`, `generateRecoveryCodes()`, `code($secret)`, `verify($secret, $code)`, `provisioningUri(...)`
-- `SignedUrl($key)` -> `temporary('/path', 3600, ['id' => 1])` / `verify($pathWithQuery)`
-- `TokenSigner($key)` -> `sign($claims, 3600)` / `verify($token)` / `generateCsrfToken($sessionId)`
-- `PasswordHasher` (Argon2id) -> `hash($pw)` / `verify($pw, $hash)`
-- `Principal` + `Gate::authorize($principal, 'capability')`
-- `SecretScrubber::scrub($text)` / `SecretScrubber::scrubArray($array)`
+- `Totp`, `SignedUrl`, `TokenSigner`, `PasswordHasher` (Argon2id), `Principal` + `Gate`, `SecretScrubber::scrub()` / `scrubArray()`
 
 ## Views (`.kgn.html`)
-- `{{ $escaped }}`, `{!! $slot !!}`, `@extends('layouts/app')`, `@section('content')...@endsection`, `@yield('content')`
+- `{{ $escaped }}`, `{!! $slot !!}`, `@liveScript`, `@vite(...)`, `@t('key')`, `@json($val)`, `@extends('layouts/app')`, `@section('content')...@endsection`, `@yield('content')`
 - `@if`/`@elseif`/`@else`/`@endif`, `@foreach`/`@endforeach`, `@forelse`/`@empty`/`@endforelse`
-- Components: `<x-card title="Static" :tag="$dynamic">Slot</x-card>` -> `views/components/card.kgn.html` (use plain `&`, never `&amp;`, in component attributes)
+- Components: `<x-card title="Static" :tag="$dynamic">Slot</x-card>` -> `views/components/card.kgn.html`
 
 ## AI, Governance & MCP (`Kongono\Ai\*`, `Kongono\Cli\*`)
 - `AiClient::fromEnv()` (OpenAI, Anthropic, Gemini, Ollama) -> `ask()`, `chat()`, `chatStream()`, `structured($prompt, Dto::class)`
-- `AgentPrincipal(id, role, allowedTools, maxSteps, maxToolCalls, approvalRequiredTools, maxTokens, maxCostUsd)` + `AgentRunner` (pauses with `status: 'awaiting_approval'` on approval-gated tools)
-- Built-in CLI: `kongo serve`, `kongo doctor`, `kongo audit`, `kongo deploy:init`, `kongo routes`, `kongo graph`, `kongo openapi`, `kongo mcp`, `kongo optimize`, `kongo work`, `kongo oshie`, `kongo chie`, `kongo hantei`
+- `AgentPrincipal(id, role, allowedTools, maxSteps, maxToolCalls, approvalRequiredTools, maxTokens, maxCostUsd)` + `AgentRunner`
+- Built-in CLI: `kongo serve`, `kongo doctor`, `kongo audit [--attack]`, `kongo sdk:generate`, `kongo deploy:init`, `kongo routes`, `kongo graph`, `kongo openapi`, `kongo mcp`, `kongo optimize`, `kongo work`, `kongo oshie`, `kongo chie`, `kongo hantei`
