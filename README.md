@@ -1,6 +1,7 @@
 # Kongono Application Skeleton (`kongono/app`)
 
 [![CI](https://github.com/anthonyiovanna/kongono-app/actions/workflows/ci.yml/badge.svg)](https://github.com/anthonyiovanna/kongono-app/actions/workflows/ci.yml)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/SXWjgBGwrZ)
 ![PHP 8.5+](https://img.shields.io/badge/PHP-8.5%2B-777BB4?logo=php&logoColor=white)
 ![Zero Symfony](https://img.shields.io/badge/Symfony-0%20packages-16a34a)
 ![License MIT](https://img.shields.io/badge/License-MIT-0284c7)
