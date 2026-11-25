@@ -8,16 +8,16 @@
     "packages": [
         {
             "name": "kongono/framework",
-            "version": "v1.20.2",
+            "version": "v1.20.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/anthonyiovanna/kongono.git",
-                "reference": "8ffc9c09ed41218c185f7f4c956be2d76b1a274b"
+                "reference": "3ca3b22fecab92d4ee028636c4ec668ec56d8f59"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/anthonyiovanna/kongono/zipball/8ffc9c09ed41218c185f7f4c956be2d76b1a274b",
-                "reference": "8ffc9c09ed41218c185f7f4c956be2d76b1a274b",
+                "url": "https://api.github.com/repos/anthonyiovanna/kongono/zipball/3ca3b22fecab92d4ee028636c4ec668ec56d8f59",
+                "reference": "3ca3b22fecab92d4ee028636c4ec668ec56d8f59",
                 "shasum": ""
             },
             "require": {
@@ -111,7 +111,7 @@
                 "issues": "https://github.com/anthonyiovanna/kongono/issues",
                 "source": "https://github.com/anthonyiovanna/kongono"
             },
-            "time": "2026-11-25T20:11:49+00:00"
+            "time": "2026-11-25T21:18:46+00:00"
         },
         {
             "name": "psr/container",
