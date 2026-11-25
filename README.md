@@ -20,7 +20,7 @@ Then open in your browser:
 - **Kongono Dev Studio:** http://127.0.0.1:8000/_kongono *(auto-disabled when `APP_DEBUG=false`)*
 - **Interactive OpenAPI 3.1 Explorer:** http://127.0.0.1:8000/docs
 - **Readiness Health Check:** http://127.0.0.1:8000/health
-- **Prometheus Metrics:** http://127.0.0.1:8000/metrics
+- **Prometheus Metrics:** http://127.0.0.1:8000/metrics *(requires Bearer token with `ops.view`)*
 
 ## Included Commands
 

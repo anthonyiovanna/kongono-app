@@ -2,8 +2,8 @@ FROM dunglas/frankenphp:php8.5
 
 WORKDIR /app
 
-COPY composer.json ./
-RUN composer install --no-dev --no-interaction --optimize-autoloader --no-scripts
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
 COPY . /app
 RUN php vendor/bin/kongo optimize

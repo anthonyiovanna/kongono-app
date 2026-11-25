@@ -27,8 +27,8 @@
     "docs": "https://github.com/anthonyiovanna/kongono/tree/main/docs"
   },
   "require": {
-    "php": ">=8.5.0",
-    "kongono/framework": "^1.4"
+    "php": ">=8.5.13",
+    "kongono/framework": "^1.20"
   },
   "require-dev": {
     "phpstan/phpstan": "^2.2",
@@ -58,7 +58,7 @@
     "dev": "@php vendor/bin/kongo serve --port=8000",
     "doctor": "@php vendor/bin/kongo doctor",
     "security:audit": "@php vendor/bin/kongo audit",
-    "security:attack": "@php vendor/bin/kongo audit --attack",
+    "security:attack": "@php vendor/bin/kongo audit --attack --strict",
     "ai:eval": "@php vendor/bin/kongo eval --redteam",
     "migrate:lint": "@php vendor/bin/kongo migrate:lint",
     "sdk:ts": "@php vendor/bin/kongo sdk:generate --lang=ts",

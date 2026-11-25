@@ -7,19 +7,22 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   quality:
     name: PHP 8.5 App Quality Suite
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup PHP 8.5
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
           php-version: '8.5'
-          extensions: curl, json, mbstring, openssl, pdo, sodium, zlib
+          extensions: curl, dom, json, mbstring, openssl, pdo, sodium, zlib
           tools: composer:v2
 
       - name: Install Dependencies
@@ -33,8 +36,10 @@ jobs:
             exit 1
           fi
 
-      - name: Validate Composer Manifest
-        run: composer validate --strict
+      - name: Validate Composer Manifest & Security Audit
+        run: |
+          composer validate --strict
+          composer audit --locked --abandoned=report
 
       - name: Run Post-Create-Project Setup & CLI Checks
         run: |
@@ -43,6 +48,7 @@ jobs:
           php vendor/bin/kongo env:check
           php vendor/bin/kongo routes --json
           php vendor/bin/kongo optimize
+          php vendor/bin/kongo audit --attack --strict
 
       - name: Static Analysis (PHPStan Level 9 + Strict)
         run: composer analyse

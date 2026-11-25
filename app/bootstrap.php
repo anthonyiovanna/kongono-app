@@ -13,6 +13,7 @@ use Kongono\Cli\Context\ProjectContext;
 use Kongono\Core\Cache\CacheInterface;
 use Kongono\Core\Cache\FileCache;
 use Kongono\Core\Config;
+use Kongono\Core\Diagnostics\SecretScrubber;
 use Kongono\Core\EnvLoader;
 use Kongono\Core\Features\FeatureManager;
 use Kongono\Core\Health\HealthCheck;
@@ -27,8 +28,13 @@ use Kongono\Http\Realtime\EventBus;
 use Kongono\Http\Session\CacheSessionStore;
 use Kongono\Http\Session\SessionMiddleware;
 use Kongono\Security\Encryptor;
+use Kongono\Security\Middleware\BearerAuthMiddleware;
 use Kongono\Security\Middleware\CorsMiddleware;
+use Kongono\Security\Middleware\CsrfMiddleware;
+use Kongono\Security\Middleware\RateLimitMiddleware;
 use Kongono\Security\Middleware\SecurityHeadersMiddleware;
+use Kongono\Security\Principal;
+use Kongono\Security\PrincipalKind;
 use Kongono\Security\TokenSigner;
 use Kongono\Storage\LocalStorage;
 use Kongono\Storage\StorageInterface;
@@ -38,9 +44,36 @@ $baseDir = dirname(__DIR__);
 EnvLoader::load($baseDir . DIRECTORY_SEPARATOR . '.env');
 
 $appName = Config::env('APP_NAME') ?? 'My Kongono App';
-$debug = filter_var(Config::env('APP_DEBUG') ?? 'true', FILTER_VALIDATE_BOOL);
-$envKey = Config::env('APP_KEY');
-$appKey = (null !== $envKey && strlen($envKey) >= 16) ? $envKey : 'kongono-local-dev-key-change-me-in-prod';
+$appEnv = strtolower(Config::env('APP_ENV') ?? 'local');
+$isProdEnv = in_array($appEnv, ['production', 'prod'], true);
+$debugEnv = Config::env('APP_DEBUG');
+$debug = filter_var(
+    (null !== $debugEnv && '' !== trim($debugEnv)) ? $debugEnv : ($isProdEnv ? 'false' : 'true'),
+    FILTER_VALIDATE_BOOL,
+);
+
+$configuredKey = Config::env('APP_KEY');
+$trimmedKey = null !== $configuredKey ? trim($configuredKey) : '';
+$decodedKeyBytes = str_starts_with($trimmedKey, 'base64:')
+    ? base64_decode(substr($trimmedKey, 7), true)
+    : $trimmedKey;
+$keyIsPlaceholder = '' === $trimmedKey
+    || str_contains(strtoupper($trimmedKey), 'CHANGE_ME')
+    || str_contains(strtoupper($trimmedKey), 'REPLACE_WITH')
+    || str_contains(strtolower($trimmedKey), 'example');
+if ($isProdEnv && ($keyIsPlaceholder || !is_string($decodedKeyBytes) || strlen($decodedKeyBytes) < 32)) {
+    throw new \RuntimeException('APP_KEY must be configured with at least 32 random bytes in production (run `php vendor/bin/kongo key:generate`).');
+}
+$appKey = !$keyIsPlaceholder && is_string($decodedKeyBytes) && strlen($decodedKeyBytes) >= 16
+    ? $trimmedKey
+    : 'ephemeral-' . bin2hex(random_bytes(24));
+
+$secureCookies = filter_var(Config::env('SESSION_SECURE') ?? ($isProdEnv ? 'true' : 'false'), FILTER_VALIDATE_BOOL);
+$corsEnv = Config::env('CORS_ALLOWED_ORIGINS') ?? '';
+$corsOrigins = array_values(array_filter(
+    array_map('trim', explode(',', $corsEnv)),
+    static fn(string $origin): bool => '' !== $origin && '*' !== $origin,
+));
 
 $cache = new FileCache($baseDir . DIRECTORY_SEPARATOR . 'var' . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'app');
 $storage = new LocalStorage($baseDir . DIRECTORY_SEPARATOR . 'var' . DIRECTORY_SEPARATOR . 'storage');
@@ -52,20 +85,44 @@ $features = new FeatureManager($cache);
 $encryptor = new Encryptor($appKey);
 $signer = new TokenSigner($appKey);
 
+$bearerAuth = new BearerAuthMiddleware(static function (string $token) use ($signer): ?Principal {
+    $claims = $signer->verify($token);
+    if (null === $claims || !is_string($claims['sub'] ?? null)) {
+        return null;
+    }
+
+    /** @var list<string> $capabilities */
+    $capabilities = [];
+    if (is_array($claims['capabilities'] ?? null)) {
+        $capabilities = array_values(array_filter(
+            $claims['capabilities'],
+            static fn(mixed $value): bool => is_string($value) && '' !== $value,
+        ));
+    }
+
+    return new Principal($claims['sub'], PrincipalKind::Human, $capabilities, $claims);
+});
+
 $health = (new HealthCheck())
     ->check('cache', static function () use ($cache): bool {
-        $cache->set('health:ping', 'ok', 15);
-        $ok = 'ok' === $cache->get('health:ping');
-        $cache->delete('health:ping');
+        $probeKey = 'health:probe:' . bin2hex(random_bytes(8));
+        try {
+            $cache->set($probeKey, 'ok', 15);
 
-        return $ok;
+            return 'ok' === $cache->get($probeKey);
+        } finally {
+            $cache->delete($probeKey);
+        }
     })
     ->check('storage', static function () use ($storage): bool {
-        $storage->put('_health/probe.txt', 'ok', 'text/plain');
-        $ok = 'ok' === $storage->get('_health/probe.txt');
-        $storage->delete('_health/probe.txt');
+        $probeKey = '_health/probe-' . bin2hex(random_bytes(8)) . '.txt';
+        try {
+            $storage->put($probeKey, 'ok', 'text/plain');
 
-        return $ok;
+            return 'ok' === $storage->get($probeKey);
+        } finally {
+            $storage->delete($probeKey);
+        }
     });
 
 $app = App::create($baseDir, name: $appName)
@@ -81,6 +138,7 @@ $app = App::create($baseDir, name: $appName)
     ->instance(FeatureManager::class, $features)
     ->instance(Encryptor::class, $encryptor)
     ->instance(TokenSigner::class, $signer)
+    ->instance(BearerAuthMiddleware::class, $bearerAuth)
     ->controller(HomeController::class);
 
 $tryAi = static function (): ?AiClient {
@@ -131,7 +189,9 @@ $app->middleware(
                     'path' => $change['path'],
                     'action' => $change['action'],
                     'explanation' => $change['explanation'],
-                    'diff' => DiffRenderer::render($change['path'], $before, $change['content']),
+                    'diff' => SecretScrubber::scrub(
+                        DiffRenderer::render($change['path'], $before, SecretScrubber::scrub($change['content'])),
+                    ),
                 ];
             }
 
@@ -146,8 +206,10 @@ $app->middleware(
     new CompressionMiddleware(),
     new StaticFilesMiddleware($baseDir . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'assets', '/assets/'),
     new SecurityHeadersMiddleware(),
-    new CorsMiddleware(allowedOrigins: ['*']),
-    new SessionMiddleware(new CacheSessionStore($cache)),
+    new CorsMiddleware(allowedOrigins: $corsOrigins),
+    new RateLimitMiddleware($cache, maxRequests: 120, windowSeconds: 60),
+    new SessionMiddleware(new CacheSessionStore($cache), secure: $secureCookies),
+    new CsrfMiddleware($signer, exemptPrefixes: ['/api/', '/_kongono/', '/mcp']),
 );
 
 return $app;

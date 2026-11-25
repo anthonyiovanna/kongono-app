@@ -16,7 +16,10 @@ use Kongono\Http\Response;
 use Kongono\Http\Routing\CacheControl;
 use Kongono\Http\Routing\Get;
 use Kongono\Http\Routing\Idempotent;
+use Kongono\Http\Routing\Middleware;
 use Kongono\Http\Routing\Post;
+use Kongono\Security\Attributes\Can;
+use Kongono\Security\Middleware\BearerAuthMiddleware;
 use Kongono\View\ViewEngine;
 
 final readonly class HomeController
@@ -62,6 +65,8 @@ final readonly class HomeController
     }
 
     #[Get('/metrics', name: 'metrics')]
+    #[Middleware(BearerAuthMiddleware::class)]
+    #[Can('ops.view')]
     public function metrics(): Response
     {
         return Response::text($this->metrics->toPrometheus(), 200, [
@@ -79,10 +84,21 @@ final readonly class HomeController
     #[Get('/docs', name: 'api.docs')]
     public function docs(): Response
     {
-        return Response::html((new ApiDocsRenderer())->render($this->app));
+        return Response::html((new ApiDocsRenderer())->render($this->app, scriptSrc: '/docs/explorer.js'));
+    }
+
+    #[Get('/docs/explorer.js', name: 'api.docs.script')]
+    #[CacheControl(maxAge: 3600, public: true)]
+    public function docsScript(): Response
+    {
+        return Response::text(ApiDocsRenderer::clientScript(), 200, [
+            'Content-Type' => 'application/javascript; charset=utf-8',
+        ]);
     }
 
     #[Post('/mcp', name: 'mcp')]
+    #[Middleware(BearerAuthMiddleware::class)]
+    #[Can('mcp.access')]
     public function mcp(Request $request): Response
     {
         $server = KongonoMcpFactory::forApp($this->app->basePath(), $this->app);

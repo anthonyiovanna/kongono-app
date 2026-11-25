@@ -6,6 +6,7 @@ namespace App\Tests;
 
 use Kongono\Http\App;
 use Kongono\Http\Testing\TestClient;
+use Kongono\Security\TokenSigner;
 use Kongono\View\ViewEngine;
 use PHPUnit\Framework\TestCase;
 
@@ -31,7 +32,9 @@ final class AppTest extends TestCase
 
     public function testHomeHealthDocsOpenApiDevStudioAndMcpWork(): void
     {
-        $client = new TestClient($this->bootApp());
+        $app = $this->bootApp();
+        $client = new TestClient($app);
+        $signer = $app->container()->make(TokenSigner::class);
 
         $client->get('/')
             ->assertOk()
@@ -56,7 +59,11 @@ final class AppTest extends TestCase
         $client->get('/docs')
             ->assertOk()
             ->assertSee('OpenAPI 3.1.0')
-            ->assertSee('/api/echo');
+            ->assertSee('/api/echo')
+            ->assertSee('/docs/explorer.js');
+
+        $client->get('/docs/explorer.js')
+            ->assertOk();
 
         $client->get('/_kongono')
             ->assertOk()
@@ -70,11 +77,27 @@ final class AppTest extends TestCase
             ->assertOk()
             ->assertSee('Chie');
 
-        $mcp = $client->postJson('/mcp', [
+        // Sensitive operational & MCP endpoints fail closed without a Bearer token
+        $client->get('/metrics')->assertStatus(401);
+        $client->postJson('/mcp', [
             'jsonrpc' => '2.0',
             'id' => 1,
             'method' => 'tools/list',
-        ])->assertOk();
+        ])->assertStatus(401);
+
+        $opsToken = $signer->sign(['sub' => 'ops-monitor', 'capabilities' => ['ops.view']]);
+        $client->withHeader('Authorization', 'Bearer ' . $opsToken)
+            ->get('/metrics')
+            ->assertOk()
+            ->assertSee('app_http_requests_total');
+
+        $mcpToken = $signer->sign(['sub' => 'dev-ide', 'capabilities' => ['mcp.access']]);
+        $mcp = $client->withHeader('Authorization', 'Bearer ' . $mcpToken)
+            ->postJson('/mcp', [
+                'jsonrpc' => '2.0',
+                'id' => 1,
+                'method' => 'tools/list',
+            ])->assertOk();
         $toolNames = array_column($mcp->json()['result']['tools'], 'name');
         self::assertContains('kongono_graph', $toolNames);
     }
@@ -104,33 +127,74 @@ final class AppTest extends TestCase
 
     public function testViewsAutoReloadTracksAppDebugSetting(): void
     {
-        $prevEnv = $_ENV['APP_DEBUG'] ?? null;
-        $prevServer = $_SERVER['APP_DEBUG'] ?? null;
-        $prevGetenv = getenv('APP_DEBUG');
-
-        try {
-            $_ENV['APP_DEBUG'] = 'false';
-            $_SERVER['APP_DEBUG'] = 'false';
-            putenv('APP_DEBUG=false');
-
+        $this->withEnv(['APP_DEBUG' => 'false'], function (): void {
             $prodApp = $this->bootApp();
             self::assertFalse($prodApp->isDebug());
             self::assertFalse($prodApp->container()->make(ViewEngine::class)->isAutoReload());
+        });
+    }
+
+    public function testProductionFailsClosedWithoutStrongAppKeyAndDefaultsDebugOff(): void
+    {
+        $this->withEnv(['APP_ENV' => 'production', 'APP_KEY' => '', 'APP_DEBUG' => ''], function (): void {
+            try {
+                $this->bootApp();
+                self::fail('Expected production boot without APP_KEY to fail closed.');
+            } catch (\RuntimeException $e) {
+                self::assertStringContainsString('APP_KEY', $e->getMessage());
+            }
+        });
+
+        $strongKey = 'base64:' . base64_encode(random_bytes(32));
+        $this->withEnv(['APP_ENV' => 'production', 'APP_KEY' => $strongKey, 'APP_DEBUG' => ''], function (): void {
+            $prodApp = $this->bootApp();
+            self::assertFalse($prodApp->isDebug());
+        });
+    }
+
+    /**
+     * @param array<string, ?string> $overrides
+     */
+    private function withEnv(array $overrides, callable $callback): void
+    {
+        $saved = [];
+        foreach (array_keys($overrides) as $name) {
+            $saved[$name] = [
+                'env' => $_ENV[$name] ?? null,
+                'server' => $_SERVER[$name] ?? null,
+                'getenv' => getenv($name),
+            ];
+        }
+
+        try {
+            foreach ($overrides as $name => $value) {
+                if (null === $value) {
+                    unset($_ENV[$name], $_SERVER[$name]);
+                    putenv($name);
+                } else {
+                    $_ENV[$name] = $value;
+                    $_SERVER[$name] = $value;
+                    putenv($name . '=' . $value);
+                }
+            }
+            $callback();
         } finally {
-            if (null === $prevEnv) {
-                unset($_ENV['APP_DEBUG']);
-            } else {
-                $_ENV['APP_DEBUG'] = $prevEnv;
-            }
-            if (null === $prevServer) {
-                unset($_SERVER['APP_DEBUG']);
-            } else {
-                $_SERVER['APP_DEBUG'] = $prevServer;
-            }
-            if (false === $prevGetenv) {
-                putenv('APP_DEBUG');
-            } else {
-                putenv('APP_DEBUG=' . $prevGetenv);
+            foreach ($saved as $name => $orig) {
+                if (null === $orig['env']) {
+                    unset($_ENV[$name]);
+                } else {
+                    $_ENV[$name] = $orig['env'];
+                }
+                if (null === $orig['server']) {
+                    unset($_SERVER[$name]);
+                } else {
+                    $_SERVER[$name] = $orig['server'];
+                }
+                if (false === $orig['getenv']) {
+                    putenv($name);
+                } else {
+                    putenv($name . '=' . $orig['getenv']);
+                }
             }
         }
     }
