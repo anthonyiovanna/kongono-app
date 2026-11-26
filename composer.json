@@ -14,7 +14,7 @@
     "mcp",
     "frankenphp"
   ],
-  "homepage": "https://github.com/anthonyiovanna/kongono-app",
+  "homepage": "https://github.com/kongono/app",
   "authors": [
     {
       "name": "Anthony Iovanna",
@@ -22,9 +22,9 @@
     }
   ],
   "support": {
-    "issues": "https://github.com/anthonyiovanna/kongono/issues",
-    "source": "https://github.com/anthonyiovanna/kongono-app",
-    "docs": "https://github.com/anthonyiovanna/kongono/tree/main/docs"
+    "issues": "https://github.com/kongono/framework/issues",
+    "source": "https://github.com/kongono/app",
+    "docs": "https://kongono.com/docs"
   },
   "require": {
     "php": ">=8.5.13",
